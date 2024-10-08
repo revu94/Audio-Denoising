@@ -67,8 +67,8 @@ class Noise2NoiseUNet(nn.Module):
         self.hop_length = hop_length
 
         self.encoders = [
-            Encoder(1, 32, (7, 1), (1, 1), (0, 0)),
-            Encoder(32, 32, (1, 7), (1, 1), (0, 0)),
+            Encoder(1, 32, (7, 1), (1, 1), (3, 0)),
+            Encoder(32, 32, (1, 7), (1, 1), (0, 3)),
             Encoder(32, 64, (6, 4), (2, 2), (0, 0)),
             Encoder(64, 64, (7, 5), (2, 1), (0, 0)),
             Encoder(64, 64, (5, 3), (2, 2), (0, 0)),
@@ -81,23 +81,24 @@ class Noise2NoiseUNet(nn.Module):
 
         self.decoders = [
             Decoder(128, 64, (6, 3), (2, 1), (0, 0)),
-            Decoder(64, 64, (6, 3), (2, 2), (0, 0)),
-            Decoder(64, 64, (6, 3), (2, 1), (0, 0)),
-            Decoder(64, 64, (6, 4), (2, 2), (0, 0)),
-            Decoder(64, 64, (6, 3), (2, 1), (0, 0)),
-            Decoder(64, 64, (6, 4), (2, 2), (0, 0)),
-            Decoder(64, 64, (8, 5), (2, 1), (0, 0)),
-            Decoder(64, 32, (7, 5), (2, 2), (0, 0)),
-            Decoder(64, 32, (1, 7), (1, 1), (0, 0)),
-            Decoder(64, 1, (7, 1), (1, 1), (0, 0), last_layer=True),
+            Decoder(64 * 2, 64, (6, 3), (2, 2), (0, 0)),
+            Decoder(64 * 2, 64, (6, 3), (2, 1), (0, 0)),
+            Decoder(64 * 2, 64, (6, 4), (2, 2), (0, 0)),
+            Decoder(64 * 2, 64, (6, 3), (2, 1), (0, 0)),
+            Decoder(64 * 2, 64, (6, 4), (2, 2), (0, 0)),
+            Decoder(64 * 2, 64, (8, 5), (2, 1), (0, 0)),
+            Decoder(64 * 2, 32, (7, 5), (2, 2), (0, 0)),
+            Decoder(64 * 2, 32, (1, 7), (1, 1), (0, 3)),
+            Decoder(32, 1, (7, 1), (1, 1), (3, 0), last_layer=True),
         ]
 
-        self.encoders_1 = nn.ModuleList(self.encoders)
-        self.decoders_2 = nn.ModuleList(self.decoders)
+        self.encoders = nn.ModuleList(self.encoders)
+        self.decoders = nn.ModuleList(self.decoders)
+        self.model_length = len(self.decoders) - 1
 
     def forward(self, x, is_istft=True):
         orig_x = x
-        self.model_length = 20 // 2
+
         xs = []
         for i, encoder in enumerate(self.encoders):
             xs.append(x)
@@ -108,10 +109,10 @@ class Noise2NoiseUNet(nn.Module):
         for i, decoder in enumerate(self.decoders):
             print("i", i)
             p = decoder(p)
-            if i == self.model_length - 1:
-                break
+            if i < self.model_length:
+                # skip connection
+                p = torch.cat([p, xs[self.model_length - i]], dim=1)
             print("Decoder : ", p.shape)
-            p = torch.cat([p, xs[self.model_length - 1 - i]], dim=1)
         # print("p", p)
 
         mask = p
