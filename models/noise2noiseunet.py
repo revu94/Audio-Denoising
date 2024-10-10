@@ -7,7 +7,7 @@ from scipy import interpolate
 from torch import nn
 from tqdm.auto import tqdm
 
-from metrics import AudioMetricException, AudioMetrics, AudioMetrics2
+from models.metrics import AudioMetricException, AudioMetrics, AudioMetrics2
 from models.unet_model import Decoder, Encoder
 
 train_on_gpu = torch.cuda.is_available()
