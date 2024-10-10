@@ -43,24 +43,32 @@ class CConv2d(nn.Module):
         c_im = self.im_conv(x_real) + self.real_conv(x_im)
 
         output = torch.stack([c_real, c_im], dim=-1)
-        print(output.shape)
         return output
 
 
 class ConvT2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernal, stride, padding=0) -> None:
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernal,
+        stride,
+        padding=0,
+        output_padding=(0, 0),
+    ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernal = kernal
         self.stride = stride
         self.padding = padding
+        self.output_padding = output_padding
 
         self.conv2d_real = nn.ConvTranspose2d(
-            in_channels, out_channels, kernal, stride, padding
+            in_channels, out_channels, kernal, stride, padding, output_padding
         )
         self.conv2d_im = nn.ConvTranspose2d(
-            in_channels, out_channels, kernal, stride, padding
+            in_channels, out_channels, kernal, stride, padding, output_padding
         )
         nn.init.xavier_uniform_(self.conv2d_real.weight)
         nn.init.xavier_uniform_(self.conv2d_im.weight)
@@ -76,59 +84,6 @@ class ConvT2dBlock(nn.Module):
         output_conv2d = torch.stack([output_conv2d_real, output_conv2d_im], -1)
 
         return output_conv2d
-
-
-class CConvTranspose2d(nn.Module):
-    """
-    Class of complex valued dilation convolutional layer
-    """
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_size,
-        stride,
-        padding=0,
-    ):
-        super().__init__()
-
-        self.in_channels = in_channels
-
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.padding = padding
-        self.stride = stride
-
-        self.real_convt = nn.ConvTranspose2d(
-            in_channels=self.in_channels,
-            out_channels=self.out_channels,
-            kernel_size=self.kernel_size,
-            padding=self.padding,
-            stride=self.stride,
-        )
-
-        self.im_convt = nn.ConvTranspose2d(
-            in_channels=self.in_channels,
-            out_channels=self.out_channels,
-            kernel_size=self.kernel_size,
-            padding=self.padding,
-            stride=self.stride,
-        )
-
-        # Glorot initialization.
-        nn.init.xavier_uniform_(self.real_convt.weight)
-        nn.init.xavier_uniform_(self.im_convt.weight)
-
-    def forward(self, x):
-        x_real = x[..., 0]
-        x_im = x[..., 1]
-
-        ct_real = self.real_convt(x_real) - self.im_convt(x_im)
-        ct_im = self.im_convt(x_real) + self.real_convt(x_im)
-
-        output = torch.stack([ct_real, ct_im], dim=-1)
-        return output
 
 
 class ComplexBatchNorm(nn.Module):
@@ -162,7 +117,6 @@ class ComplexBatchNorm(nn.Module):
         )
 
     def forward(self, x):
-        # print(x)
         batchnorm_x_real = x[..., 0]
         batchnorm_x_im = x[..., 1]
         batchnorm_out_real = self.batchnorm_real(batchnorm_x_real)
@@ -195,16 +149,13 @@ class Decoder(nn.Module):
         kernal,
         stride,
         padding,
+        output_padding=(0, 0),
         last_layer=False,
     ):
         super().__init__()
         self.last_layer = last_layer
         self.decoder = ConvT2dBlock(
-            in_channels,
-            out_channels,
-            kernal,
-            stride,
-            padding,
+            in_channels, out_channels, kernal, stride, padding, output_padding
         )
         self.normalize = ComplexBatchNorm(out_channels)
         self.activation = nn.LeakyReLU()
