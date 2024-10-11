@@ -41,7 +41,7 @@ def extract_overlapped_windows(x,nperseg,noverlap,window=None):
     return result
 
 def find_loc_peaks(slope,energy):
-    num_crit: int = len(energy)
+    num_crit = len(energy)
     loc_peaks=np.zeros_like(slope)
     for ii in range(len(slope)):
         n=ii
